@@ -319,6 +319,10 @@ function LookupIP($ip) {
 	return $res;
 }
 
+function Test(){
+	return "Success!";
+}
+
 function ValidateIP($ip) {
 	$ipnums = explode(".", $ip);
 	if(count($ipnums) != 4) {
