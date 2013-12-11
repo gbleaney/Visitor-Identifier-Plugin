@@ -23,30 +23,30 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-include 'whois.php';
 
-    /** Step 2 (from text above). */
-	add_action( 'admin_menu', 'visitor_identifier_plugin_menu' );
+add_action( 'admin_menu', 'visitor_identifier_plugin_menu' );
 
-	/** Step 1. */
-	function visitor_identifier_plugin_menu() {
-		add_menu_page( 'Visitor Identifier Options', 'Visitor Identifier Options', 'manage_options', 'Visitor-Identifier-Plugin-Slug', 'visitor_identifier_options_page'. "", 100 );
+
+function visitor_identifier_plugin_menu() {
+	add_menu_page( 'Visitor Identifier', 'Visitor Identifier', 'manage_options', 'Visitor-Identifier-Plugin', 'visitor_identifier_page'. "", 100 );
+}
+
+function visitor_identifier_page() {
+	if ( !current_user_can( 'manage_options' ) )  {
+		wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
 	}
+	$userIp = get_user_ip();
 
-	/** Step 3. */
-	function visitor_identifier_options_page() {
-		if ( !current_user_can( 'manage_options' ) )  {
-			wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
-		}
-		echo Test();
-		$userIp = get_user_ip();
-		$userWhois = LookupIP($userIp);
-		
-	}
+	$xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$userIp );
 
-    function get_user_ip() {
-        $ip = $_SERVER['REMOTE_ADDR'];
-        return $ip;
-	}
+	$simpleXml = simplexml_load_string($xml["body"]);
+	var_dump($simpleXml);
+	echo $simpleXml["registrant"]["orgainization"];
+}
+
+function get_user_ip() {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    return $ip;
+}
 
 ?>
