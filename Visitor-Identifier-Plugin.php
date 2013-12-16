@@ -35,7 +35,7 @@ register_activation_hook( __FILE__, 'setup_visitor_identifier_database' );
 //Add tracking code to every page
 add_action( 'admin_menu', 'visitor_identifier_plugin_menu' );
 //Crate admin page
-add_action( 'wp_after_admin_bar_render', 'add_tracking_to_page');
+add_action( 'wp', 'add_tracking_to_page');
 
 
 //One time installation actions
@@ -45,7 +45,7 @@ function setup_visitor_identifier_database(){
 
     $table_name = $wpdb->prefix . "visitoridentifierlogs"; 
 
-    $sql = "CREATE TABLE ".$table_name." (
+    $sql = "CREATE TABLE $table_name (
       ip BINARY(16) NOT NULL,
       time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
       orgname tinytext,
@@ -62,14 +62,32 @@ function setup_visitor_identifier_database(){
 
 //On page tracking code
 function add_tracking_to_page() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . "visitoridentifierlogs"; 
+
     $userIp = get_user_ip();
 
-    $xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$userIp );
+    $noRowsForUser = $wpdb->get_var( 
+        $wpdb->prepare( 
+            "SELECT time 
+            FROM $table_name 
+            WHERE ip = CAST(%s AS BINARY(16))", 
+            $userIp
+        )
+    );
 
-    $simpleXml = simplexml_load_string($xml["body"]);
-    var_dump($simpleXml);
-    echo "MADE IT!";
-    echo $simpleXml["registrant"]["orgainization"];
+    $newVisitor = $noRowsForUser == NULL;
+
+    if($newVisitor){
+        $xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$userIp );
+        $simpleXml = simplexml_load_string($xml["body"]);
+        $rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'orgname' => $simpleXml["registrant"]["orgainization"], 'fullxml' => $simpleXml->asXML() ) );
+    } else {
+        //TODO: update time? 
+    }
+
+    //TODO: pages accessed stuff?
+
 }
 
 
@@ -85,8 +103,26 @@ function visitor_identifier_page() {
     global $wpdb;
 
     $table_name = $wpdb->prefix . "visitoridentifierlogs";
-	$visitorinfo = $wpdb->get_results( "SELECT * FROM ".$table_name );
-	var_dump($visitorinfo);
+	$visitorinfo = $wpdb->get_results( "SELECT * FROM $table_name" );
+    //TODO: better html with {var} in echo
+    echo "<table><tr><td>IP</td><td>TIME</td><td>ORGNAME</td><td>FULL XML</td></tr>";
+    foreach ($visitorinfo as $row) {
+        echo "<tr>";
+        echo "<td>";
+        echo $row->ip;
+        echo "</td>";
+        echo "<td>";
+        echo $row->time;
+        echo "</td>";
+        echo "<td>";
+        echo $row->orgname;
+        echo "</td>";
+        echo "<td>";
+        echo htmlentities($row->fullxml);
+        echo "</td>";
+        echo "</tr>";
+    }
+    echo "</table>";
 }
 
 
