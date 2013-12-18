@@ -127,30 +127,32 @@ function visitor_identifier_page() {
     $table_name = $wpdb->prefix . "visitoridentifierlogs";
 	$visitorinfo = $wpdb->get_results( "SELECT * FROM $table_name" );
     //TODO: better html with {var} in echo
-    echo '<table class="table table-bordered"><tr><td>IP</td><td>TIME</td><td>ORGNAME</td><td>USER AGENT</td><td>FULL XML</td></tr>';
+    echo '<table class="table table-bordered"><tr><td>IP</td><td>TIME (First Access)</td><td>ORGNAME</td><td>USER AGENT</td><td>FULL XML</td></tr>';
     foreach ($visitorinfo as $row) {
         $simpleXml = simplexml_load_string($row->fullxml);
         $serializedHeaders = $row->header;
         $headers =  unserialize($serializedHeaders);
-        echo "<tr>";
-        echo "<td>";
-        echo $row->ip;
-        echo "</td>";
-        echo "<td>";
-        echo $row->time;
-        echo "</td>";
-        echo "<td>";
-        echo $simpleXml->registrant->organization;
-        echo "</td>";
-        echo "<td>";
-        echo $headers["User-Agent"];
-        echo "</td>";
-        echo "<td>";
-        echo "<div style='height: 100px; overflow: scroll;'>";
-        echo htmlentities($row->fullxml);
-        echo "</div>";
-        echo "</td>";
-        echo "</tr>";
+        if(!is_crawler($headers["User-Agent"])) {
+            echo "<tr>";
+            echo "<td>";
+            echo $row->ip;
+            echo "</td>";
+            echo "<td>";
+            echo $row->time;
+            echo "</td>";
+            echo "<td>";
+            echo $simpleXml->registrant->organization;
+            echo "</td>";
+            echo "<td>";
+            echo $headers["User-Agent"];
+            echo "</td>";
+            echo "<td>";
+            echo "<div style='height: 100px; overflow: scroll;'>";
+            echo htmlentities($row->fullxml);
+            echo "</div>";
+            echo "</td>";
+            echo "</tr>";
+        }
     }
     echo "</table>";
 }
@@ -165,10 +167,39 @@ function perform_whios(){
         WHERE fullxml IS NULL OR fullxml = ''" );
     foreach ($visitorinfo as $row) {
         $xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$row->ip );
-        echo "asdf";
-        var_dump($xml);
         $rows_affected = $wpdb->update( $table_name, array( 'fullxml' => $xml["body"] ), array( 'ip' => $row->ip ) );
     }
+}
+
+function is_crawler($userAgent){
+    $crawlers = array(
+        'Google',
+        'msnbot',
+        'Rambler',
+        'Yahoo',
+        'AbachoBOT',
+        'accoona',
+        'AcoiRobot',
+        'ASPSeek',
+        'CrocCrawler',
+        'Dumbot',
+        'FAST-WebCrawler',
+        'GeonaBot',
+        'Gigabot',
+        'Lycos',
+        'MSRBOT',
+        'Scooter',
+        'AltaVista',
+        'IDBot',
+        'eStyle',
+        'Scrubby'
+        );
+    foreach ($crawlers as $crawler) {
+        if(strpos($userAgent, $crawler) !== FALSE)  {
+            return true;
+        }
+    }
+    return false;
 }
 
 
