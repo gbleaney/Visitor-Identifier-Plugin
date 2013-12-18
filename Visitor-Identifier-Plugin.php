@@ -164,7 +164,10 @@ function perform_whios(){
     $visitorinfo = $wpdb->get_results( 
         "SELECT * 
         FROM $table_name
-        WHERE fullxml IS NULL OR fullxml = ''" );
+        WHERE 
+            fullxml IS NULL 
+            OR fullxml = '' 
+            OR fullxml LIKE '%<ErrorMessage>%'" );
     foreach ($visitorinfo as $row) {
         $xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$row->ip );
         $rows_affected = $wpdb->update( $table_name, array( 'fullxml' => $xml["body"] ), array( 'ip' => $row->ip ) );
@@ -192,7 +195,12 @@ function is_crawler($userAgent){
         'AltaVista',
         'IDBot',
         'eStyle',
-        'Scrubby'
+        'Scrubby',
+        'SiteUptime.com',
+        'Baiduspider',
+        'bingbot',
+        'MJ12bot',
+        'Ezoom'
         );
     foreach ($crawlers as $crawler) {
         if(strpos($userAgent, $crawler) !== FALSE)  {
