@@ -36,7 +36,7 @@ register_activation_hook( __FILE__, 'setup_visitor_identifier_database' );
 add_action( 'admin_menu', 'visitor_identifier_plugin_menu' );
 //Crate admin page
 add_action( 'wp', 'add_tracking_to_page');
-
+wp_register_style( 'bootstrap', plugins_url('/bootstrap.css', __FILE__), false, '1.0.0', 'all');
 
 //One time installation actions
 function setup_visitor_identifier_database(){
@@ -79,9 +79,10 @@ function add_tracking_to_page() {
     $newVisitor = $noRowsForUser == NULL;
 
     if($newVisitor){
-        $xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$userIp );
-        $simpleXml = simplexml_load_string($xml["body"]);
-        $rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'orgname' => $simpleXml["registrant"]["orgainization"], 'fullxml' => $simpleXml->asXML() ) );
+        //$xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$userIp );
+        //$simpleXml = simplexml_load_string($xml["body"]);
+        //$rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'orgname' => $simpleXml["registrant"]["orgainization"], 'fullxml' => $simpleXml->asXML() ) );
+        $rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'orgname' => "", 'fullxml' => "" ) );
     } else {
         //TODO: update time? 
     }
@@ -102,11 +103,15 @@ function visitor_identifier_page() {
 	}
     global $wpdb;
 
+    //Add bootstrap to page
+    wp_enqueue_style( 'bootstrap' );
+
     $table_name = $wpdb->prefix . "visitoridentifierlogs";
 	$visitorinfo = $wpdb->get_results( "SELECT * FROM $table_name" );
     //TODO: better html with {var} in echo
-    echo "<table><tr><td>IP</td><td>TIME</td><td>ORGNAME</td><td>FULL XML</td></tr>";
+    echo '<table class="table table-bordered"><tr><td>IP</td><td>TIME</td><td>ORGNAME</td><td>FULL XML</td></tr>';
     foreach ($visitorinfo as $row) {
+        $simpleXml = simplexml_load_string($row->fullxml);
         echo "<tr>";
         echo "<td>";
         echo $row->ip;
@@ -115,7 +120,7 @@ function visitor_identifier_page() {
         echo $row->time;
         echo "</td>";
         echo "<td>";
-        echo $row->orgname;
+        echo $simpleXml->registrant->organization;
         echo "</td>";
         echo "<td>";
         echo htmlentities($row->fullxml);
