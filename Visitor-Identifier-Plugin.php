@@ -176,10 +176,9 @@ function perform_whios(){
 
 function is_crawler($userAgent){
     $crawlers = array(
-        'Google',
+        'Googlebot',
         'msnbot',
         'Rambler',
-        'Yahoo',
         'AbachoBOT',
         'accoona',
         'AcoiRobot',
@@ -189,13 +188,8 @@ function is_crawler($userAgent){
         'FAST-WebCrawler',
         'GeonaBot',
         'Gigabot',
-        'Lycos',
         'MSRBOT',
-        'Scooter',
-        'AltaVista',
         'IDBot',
-        'eStyle',
-        'Scrubby',
         'SiteUptime.com',
         'Baiduspider',
         'bingbot',
