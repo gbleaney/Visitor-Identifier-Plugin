@@ -49,7 +49,8 @@ function setup_visitor_identifier_database(){
       ip BINARY(16) NOT NULL,
       time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
       orgname tinytext,
-      fullxml text NOT NULL,
+      fullxml text,
+      header text,
       UNIQUE KEY ip (ip)
     );";
 
@@ -79,10 +80,7 @@ function add_tracking_to_page() {
     $newVisitor = $noRowsForUser == NULL;
 
     if($newVisitor){
-        //$xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$userIp );
-        //$simpleXml = simplexml_load_string($xml["body"]);
-        //$rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'orgname' => $simpleXml["registrant"]["orgainization"], 'fullxml' => $simpleXml->asXML() ) );
-        $rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'orgname' => "", 'fullxml' => "" ) );
+        $rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql')) );
     } else {
         //TODO: update time? 
     }
@@ -94,7 +92,7 @@ function add_tracking_to_page() {
 
 //Page creation functions
 function visitor_identifier_plugin_menu() {
-	add_menu_page( 'Visitor Identifier', 'Visitor Identifier', 'manage_options', 'Visitor-Identifier-Plugin', 'visitor_identifier_page'. "", 100 );
+	add_menu_page( 'Visitor Identifier', 'Visitor Identifier', 'manage_options', 'Visitor-Identifier-Plugin', 'visitor_identifier_page', plugins_url( "Visitor-Identifier-Plugin/magnifying-glass.png" ), 100 );
 }
 
 function visitor_identifier_page() {
@@ -105,6 +103,8 @@ function visitor_identifier_page() {
 
     //Add bootstrap to page
     wp_enqueue_style( 'bootstrap' );
+
+    perform_whios();
 
     $table_name = $wpdb->prefix . "visitoridentifierlogs";
 	$visitorinfo = $wpdb->get_results( "SELECT * FROM $table_name" );
@@ -123,11 +123,27 @@ function visitor_identifier_page() {
         echo $simpleXml->registrant->organization;
         echo "</td>";
         echo "<td>";
+        echo "<div style='height: 100px; overflow: scroll;'>";
         echo htmlentities($row->fullxml);
+        echo "</div>";
         echo "</td>";
         echo "</tr>";
     }
     echo "</table>";
+}
+
+function perform_whios(){
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . "visitoridentifierlogs";
+    $visitorinfo = $wpdb->get_results( 
+        "SELECT * 
+        FROM $table_name
+        WHERE fullxml = ''" );
+    foreach ($visitorinfo as $row) {
+        $xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$row->ip );
+        $rows_affected = $wpdb->update( $table_name, array( 'fullxml' => $xml["body"] ), array( 'ip' => $row->ip ) );
+    }
 }
 
 
