@@ -45,16 +45,25 @@ function setup_visitor_identifier_database(){
     global $wpdb;
     global $visitor_identifier_db_version;
 
-    $table_name = $wpdb->prefix . "visitoridentifierlogs"; 
+    $visitor_info_table_name = $wpdb->prefix . "visitor_identifier_visitor_info"; 
+    $visitor_pages_table_name = $wpdb->prefix . "visitor_identifier_visitor_pages"; 
 
-    $sql = "CREATE TABLE $table_name (
-      ip BINARY(16) NOT NULL,
-      time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
-      orgname tinytext,
-      fullxml text,
-      header text,
-      UNIQUE KEY ip (ip)
-    );";
+    //Create table for storing of visitor ip, whois, etc and Create table for storing user pages visited, the source of that page, etc
+    $sql = 
+        "CREATE TABLE $visitor_info_table_name (
+            ip tinytext NOT NULL,
+            time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+            orgname tinytext,
+            fullxml text,
+            header text
+        );
+        CREATE TABLE $visitor_pages_table_name (
+            ip tinytext NOT NULL,
+            time datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+            url tinytext NOT NULL,
+            source tinytext
+        );
+    ";
 
     require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
     dbDelta( $sql );
@@ -67,32 +76,33 @@ function setup_visitor_identifier_database(){
 function add_tracking_to_page() {
     global $wpdb;
     global $wp_query;
-
-    //Get URL parameters and store
-    if (isset($wp_query->query_vars['source'])) {
-        //TODO: same url params and ip to page metadata
-    }
-
-    //Get IP and store
-    $table_name = $wpdb->prefix . "visitoridentifierlogs"; 
-
+    $visitor_info_table_name = $wpdb->prefix . "visitor_identifier_visitor_info"; 
+    $visitor_pages_table_name = $wpdb->prefix . "visitor_identifier_visitor_pages"; 
     $userIp = get_user_ip();
 
+    //Get URL parameters and store
+    $source = "";
+    if (isset($wp_query->query_vars['source'])) {
+        $source = $wp_query->query_vars['source'];
+    }
+    $wpdb->insert( $visitor_pages_table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'url' => get_current_page_url(), 'source' => $source  ) );
+
+    //Check if new user
     $noRowsForUser = $wpdb->get_var( 
         $wpdb->prepare( 
             "SELECT time 
-            FROM $table_name 
-            WHERE ip = CAST(%s AS BINARY(16))", 
+            FROM $visitor_info_table_name 
+            WHERE ip = %s", 
             $userIp
         )
     );
-
     $newVisitor = $noRowsForUser == NULL;
 
+    //Store IP if new year
     if($newVisitor){
         $headers = get_request_headers();
         $serializedHeaders = serialize($headers);
-        $rows_affected = $wpdb->insert( $table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'header' => $serializedHeaders ) );
+        $rows_affected = $wpdb->insert( $visitor_info_table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'header' => $serializedHeaders ) );
     } else {
         //TODO: update time? 
     }
@@ -135,21 +145,31 @@ function visitor_identifier_page() {
 		wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
 	}
     global $wpdb;
+    $visitor_info_table_name = $wpdb->prefix . "visitor_identifier_visitor_info"; 
+    $visitor_pages_table_name = $wpdb->prefix . "visitor_identifier_visitor_pages"; 
 
     //Add bootstrap to page
     wp_enqueue_style( 'bootstrap' );
 
     perform_whios();
 
-    $table_name = $wpdb->prefix . "visitoridentifierlogs";
-	$visitorinfo = $wpdb->get_results( "SELECT * FROM $table_name" );
+	$visitorinfo = $wpdb->get_results( "SELECT * FROM $visitor_info_table_name" );
     //TODO: better html with {var} in echo
-    echo '<table class="table table-bordered"><tr><td>IP</td><td>TIME (First Access)</td><td>ORGNAME</td><td>USER AGENT</td><td>FULL XML</td></tr>';
+    echo '<table class="table table-bordered"><tr><td width="10%">IP</td><td width="10%">TIME (First Access)</td><td width="15%">ORGNAME</td><td width="10%">USER AGENT</td><td width="10%">SOURCE(S)</td><td width="30%">PAGES VISITED</td><td width="15"%>FULL XML</td></tr>';
     foreach ($visitorinfo as $row) {
         $simpleXml = simplexml_load_string($row->fullxml);
         $serializedHeaders = $row->header;
         $headers =  unserialize($serializedHeaders);
         if(!is_crawler($headers["User-Agent"])) {
+            $pagesVisited = $wpdb->get_results( 
+                $wpdb->prepare( 
+                    "SELECT * 
+                    FROM $visitor_pages_table_name
+                    WHERE ip = %s", 
+                    $row->ip
+                )
+            );
+
             echo "<tr>";
             echo "<td>";
             echo $row->ip;
@@ -162,6 +182,22 @@ function visitor_identifier_page() {
             echo "</td>";
             echo "<td>";
             echo $headers["User-Agent"];
+            echo "</td>";
+            echo "<td>";
+            echo "<ul>";
+            foreach ($pagesVisited as $row) {
+                if($row->source!=null) {
+                    echo "<li>".$row->source."</li>";
+                }
+            }
+            echo "</ul>";
+            echo "</td>";
+            echo "<td>";
+            echo "<ul>";
+            foreach ($pagesVisited as $row) {
+                echo "<li>".$row->url."</li>";
+            }
+            echo "</ul>";
             echo "</td>";
             echo "<td>";
             echo "<div style='height: 100px; overflow: scroll;'>";
@@ -177,17 +213,17 @@ function visitor_identifier_page() {
 function perform_whios(){
     global $wpdb;
 
-    $table_name = $wpdb->prefix . "visitoridentifierlogs";
+    $visitor_info_table_name = $wpdb->prefix . "visitor_identifier_visitor_info";
     $visitorinfo = $wpdb->get_results( 
         "SELECT * 
-        FROM $table_name
+        FROM $visitor_info_table_name
         WHERE 
             fullxml IS NULL 
             OR fullxml = '' 
             OR fullxml LIKE '%<ErrorMessage>%'" );
     foreach ($visitorinfo as $row) {
         $xml = wp_remote_get( 'http://www.whoisxmlapi.com/whoisserver/WhoisService?domainName='.$row->ip );
-        $rows_affected = $wpdb->update( $table_name, array( 'fullxml' => $xml["body"] ), array( 'ip' => $row->ip ) );
+        $rows_affected = $wpdb->update( $visitor_info_table_name, array( 'fullxml' => $xml["body"] ), array( 'ip' => $row->ip ) );
     }
 }
 
@@ -226,6 +262,11 @@ function is_crawler($userAgent){
 function get_user_ip() {
     $ip = $_SERVER['REMOTE_ADDR'];
     return $ip;
+}
+function get_current_page_url(){
+    global $wp;
+    $current_url = add_query_arg( $wp->query_string, '', home_url( $wp->request ) );
+    return  $current_url;
 }
 
 ?>
