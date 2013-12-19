@@ -185,22 +185,22 @@ function visitor_identifier_page() {
             echo "</td>";
             echo "<td>";
             echo "<ul>";
-            foreach ($pagesVisited as $row) {
-                if($row->source!=null) {
-                    echo "<li>".$row->source."</li>";
+            foreach ($pagesVisited as $pagesVisitedRow) {
+                if($pagesVisitedRow->source!=null) {
+                    echo "<li>".$pagesVisitedRow->source."</li>";
                 }
             }
             echo "</ul>";
             echo "</td>";
             echo "<td>";
             echo "<ul>";
-            foreach ($pagesVisited as $row) {
-                echo "<li>".$row->url."</li>";
+            foreach ($pagesVisited as $pagesVisitedRow) {
+                echo "<li>".$pagesVisitedRow->url."</li>";
             }
             echo "</ul>";
             echo "</td>";
             echo "<td>";
-            echo "<div style='height: 100px; overflow: scroll;'>";
+            echo "<div style='height: 100px; overflow: auto;'>";
             echo htmlentities($row->fullxml);
             echo "</div>";
             echo "</td>";
