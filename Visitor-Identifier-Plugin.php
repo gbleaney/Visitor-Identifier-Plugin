@@ -74,41 +74,41 @@ function setup_visitor_identifier_database(){
 
 //On page tracking code
 function add_tracking_to_page() {
-    global $wpdb;
-    global $wp_query;
-    $visitor_info_table_name = $wpdb->prefix . "visitor_identifier_visitor_info"; 
-    $visitor_pages_table_name = $wpdb->prefix . "visitor_identifier_visitor_pages"; 
-    $userIp = get_user_ip();
+    $headers = get_request_headers();
+    if(!is_crawler($headers["User-Agent"])) {
 
-    //Get URL parameters and store
-    $source = "";
-    if (isset($wp_query->query_vars['source'])) {
-        $source = $wp_query->query_vars['source'];
+        global $wpdb;
+        global $wp_query;
+        $visitor_info_table_name = $wpdb->prefix . "visitor_identifier_visitor_info"; 
+        $visitor_pages_table_name = $wpdb->prefix . "visitor_identifier_visitor_pages"; 
+        $userIp = get_user_ip();
+
+        //Get URL parameters and store
+        $source = "";
+        if (isset($wp_query->query_vars['source'])) {
+            $source = $wp_query->query_vars['source'];
+        }
+        $wpdb->insert( $visitor_pages_table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'url' => get_current_page_url(), 'source' => $source  ) );
+
+        //Check if new user
+        $noRowsForUser = $wpdb->get_var( 
+            $wpdb->prepare( 
+                "SELECT time 
+                FROM $visitor_info_table_name 
+                WHERE ip = %s", 
+                $userIp
+            )
+        );
+        $newVisitor = $noRowsForUser == NULL;
+
+        //Store IP if new year
+        if($newVisitor){
+            $serializedHeaders = serialize($headers);
+            $rows_affected = $wpdb->insert( $visitor_info_table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'header' => $serializedHeaders ) );
+        } else {
+            //TODO: update time? 
+        }
     }
-    $wpdb->insert( $visitor_pages_table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'url' => get_current_page_url(), 'source' => $source  ) );
-
-    //Check if new user
-    $noRowsForUser = $wpdb->get_var( 
-        $wpdb->prepare( 
-            "SELECT time 
-            FROM $visitor_info_table_name 
-            WHERE ip = %s", 
-            $userIp
-        )
-    );
-    $newVisitor = $noRowsForUser == NULL;
-
-    //Store IP if new year
-    if($newVisitor){
-        $headers = get_request_headers();
-        $serializedHeaders = serialize($headers);
-        $rows_affected = $wpdb->insert( $visitor_info_table_name, array( 'ip' => $userIp, 'time' => current_time('mysql'), 'header' => $serializedHeaders ) );
-    } else {
-        //TODO: update time? 
-    }
-
-    //TODO: pages accessed stuff?
-
 }
 
 function get_request_headers(){
@@ -160,52 +160,52 @@ function visitor_identifier_page() {
         $simpleXml = simplexml_load_string($row->fullxml);
         $serializedHeaders = $row->header;
         $headers =  unserialize($serializedHeaders);
-        if(!is_crawler($headers["User-Agent"])) {
-            $pagesVisited = $wpdb->get_results( 
-                $wpdb->prepare( 
-                    "SELECT * 
-                    FROM $visitor_pages_table_name
-                    WHERE ip = %s", 
-                    $row->ip
-                )
-            );
+        
+        $pagesVisited = $wpdb->get_results( 
+            $wpdb->prepare( 
+                "SELECT * 
+                FROM $visitor_pages_table_name
+                WHERE ip = %s", 
+                $row->ip
+            )
+        );
 
-            echo "<tr>";
-            echo "<td>";
-            echo $row->ip;
-            echo "</td>";
-            echo "<td>";
-            echo $row->time;
-            echo "</td>";
-            echo "<td>";
-            echo $simpleXml->registrant->organization;
-            echo "</td>";
-            echo "<td>";
-            echo $headers["User-Agent"];
-            echo "</td>";
-            echo "<td>";
-            echo "<ul>";
-            foreach ($pagesVisited as $pagesVisitedRow) {
-                if($pagesVisitedRow->source!=null) {
-                    echo "<li>".$pagesVisitedRow->source."</li>";
-                }
+        echo "<tr>";
+        echo "<td>";
+        echo $row->ip;
+        echo "</td>";
+        echo "<td>";
+        echo $row->time;
+        echo "</td>";
+        echo "<td>";
+        echo $simpleXml->registrant->organization;
+        echo "</td>";
+        echo "<td>";
+        echo $headers["User-Agent"];
+        echo "</td>";
+        echo "<td>";
+        echo "<ul>";
+        foreach ($pagesVisited as $pagesVisitedRow) {
+            if($pagesVisitedRow->source!=null) {
+                echo "<li>".$pagesVisitedRow->source."</li>";
             }
-            echo "</ul>";
-            echo "</td>";
-            echo "<td>";
-            echo "<ul>";
-            foreach ($pagesVisited as $pagesVisitedRow) {
-                echo "<li>".$pagesVisitedRow->url."</li>";
-            }
-            echo "</ul>";
-            echo "</td>";
-            echo "<td>";
-            echo "<div style='height: 100px; overflow: auto;'>";
-            echo htmlentities($row->fullxml);
-            echo "</div>";
-            echo "</td>";
-            echo "</tr>";
         }
+        echo "</ul>";
+        echo "</td>";
+        echo "<td>";
+        echo "<ul>";
+        foreach ($pagesVisited as $pagesVisitedRow) {
+            echo "<li>".$pagesVisitedRow->url."</li>";
+        }
+        echo "</ul>";
+        echo "</td>";
+        echo "<td>";
+        echo "<div style='height: 100px; overflow: auto;'>";
+        echo htmlentities($row->fullxml);
+        echo "</div>";
+        echo "</td>";
+        echo "</tr>";
+        
     }
     echo "</table>";
 }
