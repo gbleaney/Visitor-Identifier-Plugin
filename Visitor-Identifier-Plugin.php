@@ -34,6 +34,8 @@ $visitor_identifier_db_version = "0.1";
 register_activation_hook( __FILE__, 'setup_visitor_identifier_database' );
 //Add tracking code to every page
 add_action( 'admin_menu', 'visitor_identifier_plugin_menu' );
+//Register the URL parameter that we want to use
+add_filter('query_vars', 'register_visitor_identifier_query_vars' );
 //Crate admin page
 add_action( 'wp', 'add_tracking_to_page');
 wp_register_style( 'bootstrap', plugins_url('/bootstrap.css', __FILE__), false, '1.0.0', 'all');
@@ -64,6 +66,14 @@ function setup_visitor_identifier_database(){
 //On page tracking code
 function add_tracking_to_page() {
     global $wpdb;
+    global $wp_query;
+
+    //Get URL parameters and store
+    if (isset($wp_query->query_vars['source'])) {
+        //TODO: same url params and ip to page metadata
+    }
+
+    //Get IP and store
     $table_name = $wpdb->prefix . "visitoridentifierlogs"; 
 
     $userIp = get_user_ip();
@@ -105,6 +115,13 @@ function get_request_headers(){
    } 
    
    return $headers; 
+}
+
+
+//URL parameter setup
+function register_visitor_identifier_query_vars( $qvars ) {
+    $qvars[] = 'source';
+    return $qvars;
 }
 
 
