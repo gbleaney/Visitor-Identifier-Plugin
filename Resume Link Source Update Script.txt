@@ -1,0 +1,35 @@
+Sub AddSources()
+    Dim pubPage As Page
+    Dim pubShape As Shape
+    Dim hprlink As Hyperlink
+    Dim origAddress() As String
+    Dim underline As Long
+    Dim color As Long
+    Dim companyName As String
+    Dim FileNum As Integer
+    Dim DataLine As String
+    
+    FileNum = FreeFile()
+    Open "C:\Users\graham.bleaney\Documents\Company Names.txt" For Input As #FileNum
+    
+    While Not EOF(FileNum)
+        Line Input #FileNum, companyName
+        For Each pubPage In ActiveDocument.Pages
+            For Each pubShape In pubPage.Shapes
+                If pubShape.Type = pbTextFrame Then
+                    For Each hprlink In pubShape.TextFrame.TextRange.Hyperlinks
+                        If InStr(hprlink.Address, "http://bleaney.ca") > 0 Then
+                            underline = hprlink.Range.Font.underline
+                            color = hprlink.Range.Font.color
+                            origAddress = Split(hprlink.Address, "?source=")
+                            hprlink.Address = origAddress(0) + "?source=" + companyName + "Resume"
+                            hprlink.Range.Font.color = color
+                            hprlink.Range.Font.underline = underline
+                        End If
+                    Next hprlink
+                End If
+            Next pubShape
+        Next pubPage
+        ThisDocument.ExportAsFixedFormat pbFixedFormatTypePDF, "C:\Users\graham.bleaney\Documents\" + companyName + "Resume.pdf"
+    Wend
+End Sub
