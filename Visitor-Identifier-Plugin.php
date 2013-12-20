@@ -247,7 +247,10 @@ function is_crawler($userAgent){
         'Baiduspider',
         'bingbot',
         'MJ12bot',
-        'Ezoom'
+        'Ezoom',
+        'niki-bot',
+        'TweetmemeBot',
+        'http://yandex.com/bots'
         );
     foreach ($crawlers as $crawler) {
         if(strpos($userAgent, $crawler) !== FALSE)  {
