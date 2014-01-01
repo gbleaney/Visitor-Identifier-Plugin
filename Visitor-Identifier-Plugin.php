@@ -153,7 +153,10 @@ function visitor_identifier_page() {
 
     perform_whios();
 
-	$visitorinfo = $wpdb->get_results( "SELECT * FROM $visitor_info_table_name" );
+	$visitorinfo = $wpdb->get_results( 
+        "SELECT * 
+        FROM $visitor_info_table_name" );
+    //WHERE source <> '' " );
     //TODO: better html with {var} in echo
     echo '<table class="table table-bordered"><tr><td width="10%">IP</td><td width="10%">TIME (First Access)</td><td width="15%">ORGNAME</td><td width="10%">USER AGENT</td><td width="10%">SOURCE(S)</td><td width="30%">PAGES VISITED</td><td width="15"%>FULL XML</td></tr>';
     foreach ($visitorinfo as $row) {
@@ -250,7 +253,9 @@ function is_crawler($userAgent){
         'Ezoom',
         'niki-bot',
         'TweetmemeBot',
-        'http://yandex.com/bots'
+        'http://yandex.com/bots',
+        'RU_Bot',
+        'SurveyBot'
         );
     foreach ($crawlers as $crawler) {
         if(strpos($userAgent, $crawler) !== FALSE)  {
